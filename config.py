@@ -1,40 +1,64 @@
+# НЕСЕКРЕТНАЯ КОНФИГУРАЦИЯ - можно публиковать
+# Здесь только ID каналов, ролей и другие настройки
+
 import os
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из .env файла
+# Загружаем токен из .env
 load_dotenv()
 
-print("=" * 50)
-print("Проверка загрузки переменных из .env:")
-print(f"DISCORD_TOKEN установлен: {'ДА' if os.getenv('DISCORD_TOKEN') else 'НЕТ'}")
-print(f"QUESTIONS_CHANNEL_ID: {os.getenv('QUESTIONS_CHANNEL_ID')}")
-print(f"Тип QUESTIONS_CHANNEL_ID: {type(os.getenv('QUESTIONS_CHANNEL_ID'))}")
-print("=" * 50)
+# Получаем токен из переменных окружения
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
+# Проверяем наличие токена
+if not DISCORD_TOKEN:
+    print("❌ КРИТИЧЕСКАЯ ОШИБКА: DISCORD_TOKEN не найден в .env файле!")
+    print("   Создайте файл .env и добавьте: DISCORD_TOKEN=ваш_токен_бота")
+    print("   Или установите переменную окружения DISCORD_TOKEN")
+    exit(1)
+
+# ID каналов и ролей (НЕ являются секретными, но специфичны для вашего сервера)
+# Эти ID можно безопасно публиковать, так как они работают только на вашем сервере
+
+# ID КАНАЛОВ
+QUESTIONS_CHANNEL_ID = 1446341671418728462    # Канал для создания вопросов
+LOG_CHANNEL_ID = 1446341671712198716          # Канал для логов закрытых тикетов
+
+# ID КАТЕГОРИЙ
+CATEGORY_ID = 1446341670412095572             # Категория для создания тикетов
+
+# ID РОЛЕЙ
+STAFFROLE = 1446341668461871214               # Роль стаффа/администраторов
+SUPPORTROLEID = 1446341668444836068           # Роль поддержки
+
+# ID ПОЛЬЗОВАТЕЛЕЙ
+OWNERID = 1160039252088868956                 # ID владельца бота
+DEVELOPER = 810135649595686962               # ID разработчика
+
+# Создаем словарь с настройками для совместимости со старым кодом
 settings = {
-    'TOKEN': os.getenv('DISCORD_TOKEN', ''),
-    'OWNERID': int(os.getenv('OWNERID', '0')),
-    'SUPPORTROLEID': int(os.getenv('SUPPORTROLEID', '0')),
-    'STAFFROLE': int(os.getenv('STAFFROLE', '0')),
-    'DEVELOPER': int(os.getenv('DEVELOPER', '0')),
-    'QUESTIONS_CHANNEL_ID': int(os.getenv('QUESTIONS_CHANNEL_ID', '0')),
-    'LOG_CHANNEL_ID': int(os.getenv('LOG_CHANNEL_ID', '0')),
-    'CATEGORY_ID': int(os.getenv('CATEGORY_ID', '0')),
+    'TOKEN': DISCORD_TOKEN,
+    'QUESTIONS_CHANNEL_ID': QUESTIONS_CHANNEL_ID,
+    'LOG_CHANNEL_ID': LOG_CHANNEL_ID,
+    'CATEGORY_ID': CATEGORY_ID,
+    'STAFFROLE': STAFFROLE,
+    'SUPPORTROLEID': SUPPORTROLEID,
+    'OWNERID': OWNERID,
+    'DEVELOPER': DEVELOPER,
 }
 
-# Выводим все настройки для проверки
-print("\nЗагруженные настройки:")
-for key, value in settings.items():
-    if key == 'TOKEN':
-        token_preview = value[:10] + '...' if len(value) > 10 else value
-        print(f"{key}: {token_preview}")
-    else:
-        print(f"{key}: {value}")
+# Выводим информацию о конфигурации (без токена)
 print("=" * 50)
-
-# Проверяем наличие критических переменных
-if not settings['TOKEN']:
-    print("❌ Внимание: DISCORD_TOKEN не установлен в .env файле!")
-
-if settings['QUESTIONS_CHANNEL_ID'] == 0:
-    print("❌ Внимание: QUESTIONS_CHANNEL_ID не установлен или равен 0!")
+print("КОНФИГУРАЦИЯ БОТА ЗАГРУЖЕНА")
+print("=" * 50)
+print("📋 НАСТРОЙКИ КАНАЛОВ:")
+print(f"  • Канал для вопросов: {QUESTIONS_CHANNEL_ID}")
+print(f"  • Канал для логов: {LOG_CHANNEL_ID}")
+print(f"  • Категория тикетов: {CATEGORY_ID}")
+print("\n👥 НАСТРОЙКИ РОЛЕЙ:")
+print(f"  • Роль стаффа: {STAFFROLE}")
+print(f"  • Роль поддержки: {SUPPORTROLEID}")
+print(f"  • Владелец: {OWNERID}")
+print(f"  • Разработчик: {DEVELOPER}")
+print("\n✅ Токен: Загружен из .env файла")
+print("=" * 50)

@@ -3,20 +3,6 @@ from disnake.ext import commands
 from datetime import datetime
 import asyncio
 import io
-import os
-import sys
-
-# Добавляем путь к текущей директории для импорта config
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-# Импортируем конфигурацию
-try:
-    from config import settings
-    print("✅ Конфигурация загружена из config.py")
-    print(f"QUESTIONS_CHANNEL_ID: {settings.get('QUESTIONS_CHANNEL_ID')}")
-except ImportError as e:
-    print(f"❌ Ошибка импорта конфигурации: {e}")
-    settings = {}
 
 active_tickets = {}
 user_tickets = {}
@@ -26,32 +12,12 @@ class CloseTicketView(disnake.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
     
-    async def send_dm(self, user, **kwargs):
-        """Универсальный метод отправки ЛС"""
-        try:
-            await user.send(**kwargs)
-            return True
-        except:
-            try:
-                dm_channel = await user.create_dm()
-                await dm_channel.send(**kwargs)
-                return True
-            except:
-                return False
-    
     @disnake.ui.button(label="Закрыть тикет", style=disnake.ButtonStyle.red, custom_id="close_ticket", emoji="🔒")
     async def close_button(self, button: disnake.ui.Button, interaction: disnake.Interaction):
         await interaction.response.defer()
         
-        # Используем глобальный импорт config вместо получения через cog
-        from config import settings
-        
-        config = {
-            'STAFFROLE': int(settings.get('STAFFROLE', 0)),
-            'SUPPORTROLEID': int(settings.get('SUPPORTROLEID', 0)),
-            'QUESTIONS_CHANNEL_ID': int(settings.get('QUESTIONS_CHANNEL_ID', 0)),
-            'LOG_CHANNEL_ID': int(settings.get('LOG_CHANNEL_ID', 0))
-        }
+        questions_cog = interaction.bot.get_cog("Questions")
+        config = questions_cog.config
         
         has_permission = False
         staff_role = interaction.guild.get_role(config["STAFFROLE"])
@@ -229,6 +195,18 @@ class CloseTicketView(disnake.ui.View):
         
         await asyncio.sleep(3)
         await interaction.channel.delete()
+    
+    async def send_dm(self, user, **kwargs):
+        try:
+            await user.send(**kwargs)
+            return True
+        except:
+            try:
+                dm_channel = await user.create_dm()
+                await dm_channel.send(**kwargs)
+                return True
+            except:
+                return False
 
 class QuestionModal(disnake.ui.Modal):
     def __init__(self):
@@ -268,13 +246,8 @@ class QuestionModal(disnake.ui.Modal):
         question = interaction.text_values["question_text"]
         user = interaction.user
         
-        # Используем глобальный импорт config
-        from config import settings
-        
-        config = {
-            'QUESTIONS_CHANNEL_ID': int(settings.get('QUESTIONS_CHANNEL_ID', 0)),
-            'SUPPORTROLEID': int(settings.get('SUPPORTROLEID', 0))
-        }
+        questions_cog = interaction.bot.get_cog("Questions")
+        config = questions_cog.config
         
         channel = interaction.guild.get_channel(config["QUESTIONS_CHANNEL_ID"])
         
@@ -341,8 +314,15 @@ class QuestionButtons(disnake.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
     
+    @disnake.ui.button(label="Принять диалог", style=disnake.ButtonStyle.green, custom_id="accept_question", emoji="✅")
+    async def accept_button(self, button: disnake.ui.Button, interaction: disnake.Interaction):
+        await self.handle_question(interaction, True)
+    
+    @disnake.ui.button(label="Отклонить", style=disnake.ButtonStyle.red, custom_id="reject_question", emoji="❌")
+    async def reject_button(self, button: disnake.ui.Button, interaction: disnake.Interaction):
+        await self.handle_question(interaction, False)
+    
     async def send_dm(self, user, **kwargs):
-        """Универсальный метод отправки ЛС"""
         try:
             await user.send(**kwargs)
             return True
@@ -354,26 +334,11 @@ class QuestionButtons(disnake.ui.View):
             except:
                 return False
     
-    @disnake.ui.button(label="Принять диалог", style=disnake.ButtonStyle.green, custom_id="accept_question", emoji="✅")
-    async def accept_button(self, button: disnake.ui.Button, interaction: disnake.Interaction):
-        await self.handle_question(interaction, True)
-    
-    @disnake.ui.button(label="Отклонить", style=disnake.ButtonStyle.red, custom_id="reject_question", emoji="❌")
-    async def reject_button(self, button: disnake.ui.Button, interaction: disnake.Interaction):
-        await self.handle_question(interaction, False)
-    
     async def handle_question(self, interaction: disnake.Interaction, accept: bool):
         await interaction.response.defer(ephemeral=True)
         
-        # Используем глобальный импорт config
-        from config import settings
-        
-        config = {
-            'STAFFROLE': int(settings.get('STAFFROLE', 0)),
-            'SUPPORTROLEID': int(settings.get('SUPPORTROLEID', 0)),
-            'QUESTIONS_CHANNEL_ID': int(settings.get('QUESTIONS_CHANNEL_ID', 0)),
-            'CATEGORY_ID': int(settings.get('CATEGORY_ID', 0))
-        }
+        questions_cog = interaction.bot.get_cog("Questions")
+        config = questions_cog.config
         
         staff_role = interaction.guild.get_role(config["STAFFROLE"])
         support_role = interaction.guild.get_role(config["SUPPORTROLEID"])
@@ -553,41 +518,21 @@ class QuestionButtons(disnake.ui.View):
 class Questions(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = self.load_config()
+        self.config = {}
     
-    def load_config(self):
-        """Загрузка конфигурации"""
-        print("\n" + "=" * 50)
-        print("Загрузка конфигурации в модуле Questions:")
-        
+    async def load_config(self):
         try:
             from config import settings
-            print("✅ Успешно импортированы настройки из config.py")
-            
-            config = {
+            self.config = {
                 'QUESTIONS_CHANNEL_ID': int(settings.get('QUESTIONS_CHANNEL_ID', 0)),
-                'LOG_CHANNEL_ID': int(settings.get('LOG_CHANNEL_ID', 0)),
+                'LOG_CHANNEL_ID': int(settings.get('LOG_CHANNEL_ID', 0)),  # Обязательно для логов
                 'CATEGORY_ID': int(settings.get('CATEGORY_ID', 0)),
                 'STAFFROLE': int(settings.get('STAFFROLE', 0)),
                 'SUPPORTROLEID': int(settings.get('SUPPORTROLEID', 0)),
                 'OWNERID': int(settings.get('OWNERID', 0))
             }
-            
-            # Выводим значения для отладки
-            for key, value in config.items():
-                print(f"{key}: {value}")
-            
-            if config['QUESTIONS_CHANNEL_ID'] == 0:
-                print("⚠️ Внимание: QUESTIONS_CHANNEL_ID не установлен или равен 0!")
-            if config['LOG_CHANNEL_ID'] == 0:
-                print("⚠️ Внимание: LOG_CHANNEL_ID не установлен или равен 0!")
-            
-            print("=" * 50)
-            return config
-            
-        except Exception as e:
-            print(f"❌ Ошибка загрузки конфига: {e}")
-            config = {
+        except:
+            self.config = {
                 'QUESTIONS_CHANNEL_ID': 0,
                 'LOG_CHANNEL_ID': 0,
                 'CATEGORY_ID': 0,
@@ -595,11 +540,10 @@ class Questions(commands.Cog):
                 'SUPPORTROLEID': 0,
                 'OWNERID': 0
             }
-            print("=" * 50)
-            return config
     
     @commands.Cog.listener()
     async def on_ready(self):
+        await self.load_config()
         self.bot.add_view(QuestionButtons())
         self.bot.add_view(CloseTicketView())
         
@@ -646,16 +590,6 @@ class Questions(commands.Cog):
                 )
                 await inter.response.send_message(embed=error_embed, ephemeral=True)
                 return
-        
-        # Проверяем, настроен ли канал для вопросов
-        if self.config['QUESTIONS_CHANNEL_ID'] == 0:
-            error_embed = disnake.Embed(
-                title="❌ Ошибка конфигурации",
-                description="Канал для вопросов не настроен. Обратитесь к администратору.",
-                color=disnake.Color.red()
-            )
-            await inter.response.send_message(embed=error_embed, ephemeral=True)
-            return
         
         channel = inter.guild.get_channel(self.config["QUESTIONS_CHANNEL_ID"])
         if channel:
@@ -827,6 +761,7 @@ class Questions(commands.Cog):
         
         # Создаем экземпляр CloseTicketView и вызываем его обработчик
         view = CloseTicketView()
+        button = disnake.ui.Button(style=disnake.ButtonStyle.red, label="Закрыть тикет")
         
         # Создаем фиктивное взаимодействие
         class FakeInteraction:
@@ -838,9 +773,6 @@ class Questions(commands.Cog):
                 self.guild = real_inter.guild
         
         fake_inter = FakeInteraction(inter, inter.channel)
-        
-        # Создаем фиктивную кнопку
-        button = disnake.ui.Button(style=disnake.ButtonStyle.red, label="Закрыть тикет")
         
         # Вызываем обработчик кнопки закрытия
         await view.close_button(button, fake_inter)
